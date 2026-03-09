@@ -30,7 +30,14 @@ That's it. Claude handles the rest.
 
 - Claude Code (Desktop or CLI) with an active subscription
 - An n8n account (Claude will help you create one if needed)
-- Node.js installed on your computer (needed for the n8n connection)
+
+## Recommended Model
+
+For best results, use **Claude Opus 4.6** — it handles complex multi-step workflow builds, validation loops, and MCP tool coordination significantly better than smaller models.
+
+## Other Coding Agents
+
+These skills are built for Claude Code, but the underlying skill files are plain Markdown — they work anywhere an agent can read instruction files. If you're using Codex, Gemini CLI, or Cursor, you can adapt the skills with some additional setup (pointing your agent at the skill files and configuring the n8n MCP server for your platform).
 
 ## Need Help?
 
