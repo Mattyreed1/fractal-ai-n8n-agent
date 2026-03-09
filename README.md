@@ -33,7 +33,7 @@ That's it. Claude handles the rest.
 
 ## Recommended Model
 
-For best results, use **Claude Opus 4.6** — it handles complex multi-step workflow builds, validation loops, and MCP tool coordination significantly better than smaller models.
+Currently, **Claude Opus 4.6** yeilds the best results. It handles complex multi-step workflow builds, validation loops, and MCP tool coordination significantly better than smaller models.
 
 ## Other Coding Agents
 
