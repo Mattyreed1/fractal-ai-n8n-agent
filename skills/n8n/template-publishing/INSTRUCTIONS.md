@@ -186,17 +186,16 @@ Check OpenAI dashboard for fine-tune job status.
 ```markdown
 ## Fractal AI
 
-**Automate the Impossible**
+**We automate busy work so you can focus on your craft.**
 
-Built by Fractal AI - Intelligent automation solutions.
-
-🔗 [Twitter/X](https://x.com/YOUR_HANDLE)
-🔗 [LinkedIn](https://linkedin.com/in/YOUR_PROFILE)
+🔗 [X/Twitter](https://x.com/mattyreed1)
+🔗 [LinkedIn](https://www.linkedin.com/in/mattyreed/)
+🔗 [Website](https://fractalai.agency)
 ```
 
 **Sticky Note Settings**:
 - Color: Brand color (if available) or default
-- Width: ~250px (compact but readable)
+- Width: ~260px (compact but readable)
 
 ---
 
@@ -519,10 +518,11 @@ Polls until job completes, then logs model ID.
 ```markdown
 ## Fractal AI
 
-**Automate the Impossible**
+**We automate busy work so you can focus on your craft.**
 
-🔗 [Twitter/X](https://x.com/FractalAI)
-🔗 [LinkedIn](https://linkedin.com/company/fractal-ai)
+🔗 [X/Twitter](https://x.com/mattyreed1)
+🔗 [LinkedIn](https://www.linkedin.com/in/mattyreed/)
+🔗 [Website](https://fractalai.agency)
 ```
 
 ---
