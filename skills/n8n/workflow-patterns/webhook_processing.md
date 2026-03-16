@@ -12,6 +12,11 @@ Webhook → [Validate] → [Transform] → [Action] → [Response/Notify]
 
 **Key Characteristic**: Instant event-driven processing
 
+**Entrypoint rule**:
+- Use this pattern for external callers (apps, users, third-party services).
+- Do **not** replace the webhook trigger with `Execute Workflow Trigger` for user-facing HTTP workflows.
+- `Execute Workflow Trigger` is only for internal workflow-to-workflow orchestration.
+
 ---
 
 ## Core Components

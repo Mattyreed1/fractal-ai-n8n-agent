@@ -470,6 +470,11 @@ const response = await $helpers.httpRequest({
 return [{json: {data: response}}];
 ```
 
+**Runtime guardrail**:
+- Do not rely on global `fetch` in Code nodes.
+- For production integrations, prefer an `HTTP Request` node over Code-node HTTP calls.
+- If HTTP must happen in Code, use `$helpers.httpRequest()` (not `fetch`/`axios` assumptions).
+
 ### DateTime (Luxon)
 
 Date and time operations:

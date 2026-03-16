@@ -21,6 +21,62 @@ n8n-mcp provides tools organized into categories:
 
 ---
 
+## Mandatory Preflight (Run Before Any Workflow Edit)
+
+### 1. Instance Targeting Guardrail
+
+Always identify the n8n instance/server first, before listing or editing workflows.
+
+Required sequence:
+1. `list_mcp_resources()` (or equivalent environment check) to see available servers.
+2. Confirm the named target instance is reachable (for example `mr-n8n` vs `scaleagency-n8n`).
+3. Run `n8n_health_check` and `n8n_list_workflows` on that instance.
+4. Match by exact workflow name + ID before any update.
+
+Never create or modify workflows in a fallback/default instance when the user named a different one.
+
+### 2. Workflow Selection Guardrail
+
+Before editing:
+1. Verify exact workflow exists in the selected instance.
+2. If missing, stop and surface the mismatch.
+3. If a replacement is needed, back up the current workflow JSON first.
+
+Never silently create a duplicate workflow with the same name when the user asked to update an existing one.
+
+### 3. Trigger Selection Guardrail
+
+Choose trigger by caller type:
+- External user/app/API call → `Webhook` trigger.
+- Workflow invoked by another workflow only → `Execute Workflow Trigger`.
+
+Never use `Execute Workflow Trigger` as the primary entrypoint for user-facing HTTP input flows.
+
+### 4. Credential Input Guardrail
+
+If end users must provide credentials/tokens (for example Apify token), design explicit inputs:
+- JSON body fields (`apifyToken`)
+- Or secure headers (`x-apify-token`)
+
+Do not hardcode user tokens in node config. Validate presence early and fail with clear errors.
+
+### 5. External API Call Guardrail
+
+For outbound API calls:
+- Prefer `HTTP Request` node.
+- In Code node, use `$helpers.httpRequest()` only when necessary.
+- Do not assume `fetch` is available in Code node runtimes.
+
+### 6. Webhook Registration Guardrail
+
+After webhook edits:
+1. Save workflow.
+2. Ensure active status.
+3. If endpoint not registered, run deactivate/activate cycle.
+4. Test real production webhook URL and verify execution record exists.
+
+---
+
 ## Quick Reference
 
 ### Most Used Tools (by success rate)
@@ -333,6 +389,47 @@ n8n_update_partial_workflow({
   intent: "Add error handling for API failures",
   operations: [{type: "addNode", node: {...}}]
 })
+```
+
+### Mistake 7: Editing the Wrong n8n Instance
+
+**Problem**: Workflow changed in the wrong account/server
+
+```javascript
+// WRONG - Edit without instance preflight
+n8n_list_workflows(...)
+n8n_update_partial_workflow(...)
+
+// CORRECT - Instance preflight first
+list_mcp_resources()
+n8n_health_check()
+n8n_list_workflows() // verify workflow ID/name in target instance
+n8n_update_partial_workflow(...)
+```
+
+### Mistake 8: Using ExecuteWorkflowTrigger for User HTTP Input
+
+**Problem**: Users cannot call workflow directly over HTTPS
+
+```javascript
+// WRONG - External flow starts at Execute Workflow Trigger
+Execute Workflow Trigger -> ...
+
+// CORRECT - External flow starts at Webhook
+Webhook -> Validate/Normalize -> ...
+```
+
+### Mistake 9: Using fetch in Code Node for Production Integrations
+
+**Problem**: Runtime errors (`fetch is not defined`) or environment drift
+
+```javascript
+// WRONG
+const res = await fetch("https://api.apify.com/...");
+
+// CORRECT
+// Prefer HTTP Request node, or in Code node:
+const res = await $helpers.httpRequest({ method: "GET", url: "https://..." });
 ```
 
 ---
