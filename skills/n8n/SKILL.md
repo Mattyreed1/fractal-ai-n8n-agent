@@ -27,7 +27,7 @@ Depending on your current task, refer to the specific sub-skills by reading thei
 3. **Execution Context**: Pay attention to "Run Once for All Items" vs "Run Once for Each Item" modes in Code nodes.
 4. **Always Run n8n Preflight**: Before any create/update/delete, identify the correct MCP server/instance, verify the target workflow ID/name exists in that instance, and only then edit.
 5. **Use Correct Entry Trigger**: External callers/users must enter via `Webhook`; `Execute Workflow Trigger` is only for internal workflow-to-workflow calls.
-6. **Credential Inputs Must Be Explicit**: If users must provide API credentials (for example Apify token), design webhook/body/header inputs for them. Do not hide this dependency.
+6. **Always Look Up Existing Credentials**: Before configuring ANY node that needs auth, query the n8n REST API (`GET /api/v1/credentials`) to find stored credentials. Match by type (`httpBearerAuth`, `httpHeaderAuth`, `openAiApi`, etc.) and apply by ID + name. NEVER leave auth unconfigured or pass tokens in URLs when a stored credential exists. See `mcp-tools-expert/INSTRUCTIONS.md` §4 for the full procedure.
 7. **Prefer HTTP Request Node for External APIs**: In Code nodes, do not rely on `fetch`; use `HTTP Request` node (preferred) or `$helpers.httpRequest()`.
 
 Whenever working on an n8n problem, use this index to find the exact sub-skill document you require, then read it closely before proceeding.

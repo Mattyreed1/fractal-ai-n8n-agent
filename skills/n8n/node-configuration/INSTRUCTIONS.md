@@ -695,6 +695,35 @@ get_node({
 // Add fields only when needed
 ```
 
+### ❌ Don't: Skip Credential Lookup
+
+**Bad**:
+```javascript
+// Leave auth unconfigured or pass tokens in URLs
+{
+  "authentication": "genericCredentialType",
+  // No credential attached — will fail at runtime!
+}
+
+// Or worse — token exposed in URL query string
+{
+  "url": "https://api.example.com?token={{ $json.apiToken }}"
+}
+```
+
+**Good**:
+```javascript
+// 1. Look up existing credentials via REST API:
+//    curl -s -H "X-N8N-API-KEY: $KEY" "$URL/api/v1/credentials"
+// 2. Find matching credential by type (httpBearerAuth, httpHeaderAuth, etc.)
+// 3. Apply it:
+{
+  "authentication": "predefinedCredentialType",
+  "nodeCredentialType": "httpBearerAuth",
+  // + add credentials block with id + name
+}
+```
+
 ### ❌ Don't: Skip Validation
 
 **Bad**:

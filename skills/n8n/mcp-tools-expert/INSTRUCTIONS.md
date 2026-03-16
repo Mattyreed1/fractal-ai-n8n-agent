@@ -52,13 +52,63 @@ Choose trigger by caller type:
 
 Never use `Execute Workflow Trigger` as the primary entrypoint for user-facing HTTP input flows.
 
-### 4. Credential Input Guardrail
+### 4. Credential Lookup Guardrail (CRITICAL)
 
-If end users must provide credentials/tokens (for example Apify token), design explicit inputs:
-- JSON body fields (`apifyToken`)
-- Or secure headers (`x-apify-token`)
+**Before configuring ANY node that needs authentication**, look up existing credentials in the n8n instance.
 
-Do not hardcode user tokens in node config. Validate presence early and fail with clear errors.
+The n8n MCP does NOT have a "list credentials" tool. Use the REST API directly:
+
+```bash
+curl -s -H "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_API_URL/api/v1/credentials" | python3 -m json.tool
+```
+
+Read `N8N_API_URL` and `N8N_API_KEY` from the MCP server config in `~/Library/Application Support/Claude/claude_desktop_config.json` (or equivalent).
+
+**Credential matching by type:**
+
+| Need | Credential Type | Example |
+|------|----------------|---------|
+| Bearer token API (Apify, etc.) | `httpBearerAuth` | `Authorization: Bearer <token>` |
+| Header-based API key | `httpHeaderAuth` | Custom header with API key |
+| OAuth2 service | `*OAuth2Api` (e.g. `slackOAuth2Api`) | Service-specific OAuth |
+| Native n8n credential | Service-specific (e.g. `openAiApi`, `notionApi`) | Built-in integrations |
+
+**How to apply a credential to a node:**
+
+For HTTP Request nodes using generic credentials:
+```json
+{
+  "parameters": {
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "httpBearerAuth"
+  },
+  "credentials": {
+    "httpBearerAuth": {
+      "id": "<credential-id>",
+      "name": "<credential-name>"
+    }
+  }
+}
+```
+
+For native n8n nodes (Slack, Notion, etc.), the credential type matches the node:
+```json
+{
+  "credentials": {
+    "slackOAuth2Api": {
+      "id": "<credential-id>",
+      "name": "<credential-name>"
+    }
+  }
+}
+```
+
+**Rules:**
+1. ALWAYS look up credentials before configuring auth on any node
+2. NEVER leave `authentication: "genericCredentialType"` without an actual credential attached
+3. NEVER pass API tokens in URL query parameters when a stored credential exists — use Bearer auth or header auth instead
+4. If no matching credential exists, tell the user they need to create one in the n8n UI
+5. If the workflow is for end-users who pass their OWN tokens, design explicit body/header inputs instead
 
 ### 5. External API Call Guardrail
 
