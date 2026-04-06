@@ -566,6 +566,39 @@ For file downloads:
 }
 ```
 
+### 6. Binary Upload Corruption — CRITICAL
+
+**`contentType: "binaryData"` wraps binary in multipart-form-data boundaries**, adding ~4KB of extra bytes that corrupt binary files (.docx, .csv, .xlsx). This is a known n8n issue.
+
+**Symptoms:** Uploaded file is slightly larger than expected. Binary files (Word docs, Excel, ZIP) can't be opened. PDFs may survive because the format is more tolerant.
+
+**Affected:** Any HTTP Request node using `sendBody: true, contentType: "binaryData"` to upload files to APIs expecting raw bytes (e.g., Microsoft Graph API PUT `/content`).
+
+**Solution:** Do NOT use n8n's HTTP Request node to upload binary files to APIs that expect raw bytes. Instead:
+1. Use an **external microservice** that receives the binary via multipart form-data and uploads directly to the target API
+2. Use a **native n8n node** (e.g., Microsoft SharePoint node, Google Drive node) which handles binary correctly
+3. For text-based uploads (Phase 1 brief backups), `contentType: "raw"` with `rawContentType: "text"` works fine
+
+**OAuth token forwarding pattern** (for microservice uploads):
+```
+n8n HTTP Request node (with predefinedCredentialType: microsoftOneDriveOAuth2Api)
+  → POSTs to microservice URL
+  → n8n automatically adds Authorization: Bearer <token>
+  → Microservice reads token from request.headers['Authorization']
+  → Microservice uses token to PUT directly to SharePoint/OneDrive
+```
+
+### 7. .docx Template Filling — CRITICAL
+
+**.docx files are ZIP archives containing XML.** Never manipulate them with:
+- Raw Buffer replacement (corrupts ZIP structure)
+- Generating from scratch with Open XML (loses all template formatting)
+- String-based XML injection like `</w:t></w:r></w:p><w:p><w:r>` (creates invalid OOXML — Word Online rejects it even if desktop Word tolerates it)
+
+**Correct approach:** Use Python `lxml` to parse `word/document.xml`, find placeholder `<w:t>` elements, and create properly nested `<w:p>/<w:r>/<w:t>` elements with cloned `<w:pPr>` and `<w:rPr>` for formatting inheritance.
+
+**n8n Cloud cannot do this natively** (Code nodes block `require('zlib')` and all native modules). Use an external microservice deployed on a VPS or Railway.
+
 ---
 
 ## Performance Optimization

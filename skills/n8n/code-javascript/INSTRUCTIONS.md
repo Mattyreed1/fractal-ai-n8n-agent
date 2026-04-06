@@ -470,10 +470,14 @@ const response = await $helpers.httpRequest({
 return [{json: {data: response}}];
 ```
 
-**Runtime guardrail**:
+**Runtime guardrails**:
 - Do not rely on global `fetch` in Code nodes.
 - For production integrations, prefer an `HTTP Request` node over Code-node HTTP calls.
 - If HTTP must happen in Code, use `$helpers.httpRequest()` (not `fetch`/`axios` assumptions).
+- **NEVER use `this.helpers.httpRequestWithAuthentication()` in Code nodes** — it does not exist in the Code node sandbox. It only works in custom n8n node packages.
+- **NEVER use `this.getCredentials()` in Code nodes** — same reason, not available.
+- If you need n8n-managed credentials in a Code node, pass auth headers manually (hardcoded token or read from a previous node's output). Alternatively, restructure the API call as an HTTP Request node which natively supports n8n credentials.
+- **n8n Cloud Code nodes block native modules** (`require('zlib')`, `require('fs')`, `require('path')`, etc.). Pure JS only — no filesystem access, no ZIP manipulation, no binary operations requiring Node built-ins.
 
 ### DateTime (Luxon)
 
