@@ -712,6 +712,41 @@ When accepting a warning, document why:
 - ✅ Known n8n issues (#304, #306, #338)
 - ✅ Auto-sanitization warnings
 - ✅ Metadata completeness (auto-fixed)
+- ✅ "Unmatched expression brackets" on Code nodes using JS template literals (see below)
+
+---
+
+## "Unmatched expression brackets" on Code Nodes — False Positive
+
+### Symptom
+
+`validate_workflow` reports:
+
+```
+Expression format error in node 'X':
+Field 'jsCode' Unmatched expression brackets: 0 opening, 1 closing
+```
+
+The "Fixed (correct)" output the validator suggests is byte-identical to the "Current (incorrect)" input.
+
+### Why It Happens
+
+The expression validator scans `jsCode` looking for n8n expression delimiters (`{{ }}`). It sees a closing `}` from a JavaScript template literal (e.g. `` `Hello ${name}` ``) or object literal and miscounts it as an unmatched expression bracket.
+
+This is a **validator bug**, not a real workflow issue. The Code node runs JavaScript — template literals and object braces are legal and have nothing to do with n8n expressions.
+
+### What To Do
+
+- **Ignore the error** if the Code node has been running successfully in production.
+- **Confirm by checking executions** (`n8n_executions list`) — if recent runs are `success`, the code is fine.
+- If you're worried, side-step by replacing the template literal with string concatenation. But this is purely cosmetic and not required.
+
+### Don't
+
+- Rewrite working production code to silence this validator
+- Block deployment on this error if the workflow has already executed successfully
+
+---
 
 **Golden Rule**: If you accept a warning, document WHY.
 

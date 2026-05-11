@@ -254,21 +254,63 @@ n8n_test_workflow → Actually RUNS the workflow
 
 A workflow can pass validation with 0 errors and still completely fail at runtime (wrong credentials, bad expressions, API errors, incorrect node types).
 
-### How to Actually Test
+### How to Actually Test — Step by Step
+
+You CAN test workflows yourself via the MCP. Don't punt to the user.
 
 ```
-1. n8n_test_workflow({workflowId: "..."})
-   → Works for: webhook, form, chat triggers
-   → Does NOT work for: manual triggers (must test in n8n UI)
+1. n8n_test_workflow requires the workflow to be ACTIVE.
+   → If you get "Workflow must be active to trigger via this method",
+     activate it first: n8n_update_partial_workflow({operations: [{type: "activateWorkflow"}]})
+   → Workflow active = real Quo/webhook/etc events could also fire during testing.
+     Caller-side consequences matter — if you're hitting real APIs (Notion writes,
+     emails to real users), use a TEST recipient first.
 
-2. After testing, VERIFY execution happened:
-   n8n_executions({action: "list", workflowId: "...", limit: 1})
-   → If 0 executions → test did NOT run. Don't claim it works.
+2. Pull realistic test data from a prior successful execution:
+   n8n_executions({action: "list", workflowId, status: "success", limit: 3})
+   n8n_executions({action: "get", id, mode: "filtered", nodeNames: ["Quo Webhook"],
+                   itemsLimit: 1, includeInputData: true})
+   → Copy the body payload, paste into n8n_test_workflow's data param.
 
-3. Check execution status:
-   n8n_executions({action: "get", id: "...", mode: "error"})
-   → Shows actual runtime errors
+3. n8n_test_workflow({
+     workflowId,
+     triggerType: "webhook",
+     webhookPath: "<path-from-trigger>",
+     httpMethod: "POST",
+     waitForResponse: false,   // ALWAYS false when workflow has Wait nodes
+     timeout: 30000,
+     data: { ...realisticPayload }
+   })
+   → triggerTypes supported: webhook, form, chat.
+   → Manual triggers can ONLY be tested in n8n UI.
+
+4. Execution may not appear in `list` for a few seconds (eventual consistency).
+   The trigger response includes a 200 with "Workflow was started" — the actual
+   execution lands shortly after. Probe by ID:
+   n8n_executions({action: "get", id: <expected_id>, mode: "preview"})
+   → If 404, increment ID or wait briefly. Each test typically gets the next ID
+     after the last execution.
+
+5. Check status by mode:
+   - status: "waiting"   → workflow paused (e.g. at a Wait node). Use mode: "preview"
+                          or "summary" to inspect what ran before the pause.
+   - status: "success"   → completed. mode: "summary" gives compact view.
+   - status: "error"     → use mode: "error" — gives node-level error + execution path.
+
+6. For workflows that pause at a Wait node, the test trigger returns immediately
+   AFTER the Wait node executes. To resume:
+   - Click the resume URL in the email/form (real user action), OR
+   - GET the resume URL directly: $execution.resumeUrl?action=approve
 ```
+
+### waitForResponse — when to use which
+
+- `waitForResponse: true` (default) — call blocks until workflow completes. Hangs
+  forever if the workflow contains a Wait node. Use ONLY for short fire-and-forget
+  workflows with no pauses.
+- `waitForResponse: false` — call returns immediately after the trigger node fires.
+  Use this for ANY workflow with Wait nodes, long-running HTTP requests, or AI calls.
+  Poll executions to track progress.
 
 ### Testing Rules
 
@@ -277,6 +319,54 @@ A workflow can pass validation with 0 errors and still completely fail at runtim
 - If you can't trigger via API (e.g., manual trigger), **say so explicitly**
 - Check execution status for errors, don't assume success
 - Test BOTH branches of IF/Switch nodes when possible
+- When testing on an ACTIVE production workflow that emails/writes to real systems,
+  temporarily swap recipients/IDs to your own address first, then revert after the test
+  passes. Use `patchNodeField` for surgical find/replace on the relevant field.
+
+### Edit-Time Gotchas (learned the hard way)
+
+1. **Active workflows with a node missing required credentials block ALL saves**,
+   including deactivation. Break the deadlock by attaching a placeholder credential
+   (the existing cred ID + a wrong-but-existing name works) via updateNode, save,
+   THEN deactivate. After the user wires the real cred, switch back.
+
+2. **"Disconnected nodes detected" validation error** — n8n refuses to save a workflow
+   where any node has no connections. Solution: rewire BEFORE removing/disabling.
+   `removeNode` is safer than `disableNode` when you want to drop a node entirely.
+   `cleanStaleConnections` mops up orphaned references after a removeNode.
+
+3. **`updateNode` with dot-notation on nested objects REPLACES the parent.**
+   `{"parameters.options.responseData": "..."}` wipes the entire `parameters.options`
+   block, losing other keys like `limitWaitTime`. When modifying nested structures,
+   pass the FULL parent object: `{"parameters.options": {responseData: "...", limitWaitTime: {...}}}`
+   or even the full `parameters` block.
+
+4. **Failed partial updates can still partially apply server-side** despite the API
+   returning `saved: false`. After ANY apparent failure, fetch the workflow with
+   `n8n_get_workflow({mode: "structure"})` to confirm actual state before retrying.
+   Don't trust the API response alone.
+
+5. **`addNode` operations require connections to nodes that exist in the same batch.**
+   Order: addNode → addConnection within one call. n8n validates the post-batch state,
+   so all nodes referenced in connections must either pre-exist or be added earlier
+   in the same operations array.
+
+6. **`$execution.resumeUrl` already contains a `?signature=...` query param.** When
+   building action-specific URLs, use `&action=approve` not `?action=approve`:
+   ```javascript
+   const sep = resumeUrl.indexOf('?') >= 0 ? '&' : '?';
+   const approveUrl = resumeUrl + sep + 'action=approve';
+   ```
+
+7. **IF branch routing**: use the smart `branch: "true"` / `branch: "false"` parameters,
+   NOT `sourceIndex`. Using sourceIndex=0 for multiple connections puts them all on
+   the true branch.
+
+8. **Long Code nodes with HTML in jsCode**: the n8n MCP's JSON parser can choke on
+   certain character combinations. If `n8n_update_partial_workflow` returns
+   `Input validation error: Expected array, received string`, simplify the operations
+   batch (split into smaller calls) and use placeholder strings + `patchNodeField`
+   to insert the real content separately.
 
 ---
 

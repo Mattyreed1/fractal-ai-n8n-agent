@@ -9,7 +9,7 @@ Proven architectural patterns for building n8n workflows.
 
 ---
 
-## The 5 Core Patterns
+## The 6 Core Patterns
 
 Based on analysis of real workflow usage:
 
@@ -32,6 +32,11 @@ Based on analysis of real workflow usage:
 5. **[Scheduled Tasks](scheduled_tasks.md)**
    - Recurring automation workflows
    - Pattern: Schedule → Fetch → Process → Deliver → Log
+
+6. **[Manual Email Gate](manual_email_gate.md)**
+   - Pause a workflow mid-execution, email a human for approve/skip, continue based on their click
+   - Pattern: Trigger → Build Email (with `$execution.resumeUrl` buttons) → Send → Wait-on-Webhook → IF (action=approve?) → branch + per-branch HTML response
+   - Use for: any pipeline that shouldn't run end-to-end without human judgement, where the reviewer is async (not on a live channel)
 
 ---
 
@@ -216,6 +221,34 @@ See: n8n Expression Syntax skill
 
 **Solution**: Use {{}} around expressions
 - See n8n Expression Syntax skill for details
+
+### 6. Notion relation PATCH silently fails on archived target
+**Problem**: Workflow PATCHes a Notion meeting/page with `Attendees.relation: [{ id: <X> }]`, gets HTTP 200, but the relation comes back empty.
+
+**Cause**: Page `<X>` is archived/in_trash. Notion accepts the PATCH and silently drops the archived target. No error.
+
+**Solution**: Before PATCHing a relation that carries a page ID across time (e.g., a webhook sets `contactPageId` and a downstream sub-workflow PATCHes it onto a meeting), GET that page first and verify `archived !== true && in_trash !== true`. If archived, drop the ID and fall back to other match signals (email/phone/name).
+
+### 7. Notion `phone_number.equals` is exact-string match
+**Problem**: Filter `{ property: 'Phone', phone_number: { equals: '+1...' } }` finds nothing even though the contact exists.
+
+**Cause**: Notion stores phones as arbitrary strings — `347-899-5761`, `(347) 899-5761`, `+13478995761` all coexist. No canonical form. `equals` is byte-exact.
+
+**Solution**: Either backfill stored phones to E.164 (cleanest) OR build an `or` filter enumerating all common variants of the same number (E.164, 10-digit, dashed, parens, dotted, spaced, with/without leading 1).
+
+### 8. Notion DB title property name varies per DB
+**Problem**: `Could not find property with name or id: Name` when querying the Companies DB.
+
+**Cause**: Notion DBs name their title property whatever the user chose. `Name` is common but not universal — Blackboard's CRM uses `Company`, Meetings uses `Meeting Title`.
+
+**Solution**: Verify the title property name per database before writing filters. Retrieve the database schema (`GET /v1/databases/{id}`) or check an existing query node in the workflow.
+
+### 9. Retrying parent vs sub-workflow execution
+**Problem**: Retrying an AI Notetaker / orchestrator execution creates a duplicate Notion page each time.
+
+**Cause**: Parent re-runs the entire pipeline including page creation. Only sub-workflow retries replay the linker step against the existing page.
+
+**Solution**: For testing a fix in a sub-workflow (e.g., contact/company linker), retry the sub-workflow execution, not the parent. If the user deleted the artifact page intentionally, then retry the parent.
 
 ---
 
