@@ -209,6 +209,32 @@ const name = webhookData.name;
 
 ---
 
+## Gotcha: Notion Node Returns Rich Text Under `text`, Not `rich_text`
+
+**TRAP**: The n8n Notion node (`n8n-nodes-base.notion`, resource `block`, operation `getAll`) with `simplifyOutput: false` returns each block's rich-text array under the key **`text`** — NOT the Notion REST API's **`rich_text`**. Code ported from the raw Notion API reads `rich_text`, finds nothing, and **silently renders blank text for every block — no error thrown**.
+
+```javascript
+// payload = the block's type object, e.g. block.paragraph / block.heading_1
+
+// ❌ WRONG - ported from raw Notion API, renders blank
+const runs = payload.rich_text;
+
+// ✅ CORRECT - alias text -> rich_text before rendering
+const runs = payload.text || payload.rich_text || [];
+```
+
+| Field | Notion REST API | n8n Notion node (`block:getAll`, `simplifyOutput:false`) |
+|---|---|---|
+| Block text runs (`heading_1/2/3`, `paragraph`, `bulleted_list_item`, `numbered_list_item`, `callout`, `to_do`, `quote`, `toggle`, `code`, …) | `rich_text` | **`text`** |
+| Table cells | `table_row.cells` | `table_row.cells` (unchanged) |
+| Parent pointer | `parent.page_id` / `parent.block_id` | preserved (+ added `parent_id` convenience field) |
+
+**Fix**: normalize/alias `text` → `rich_text` (or read `payload.text || payload.rich_text`) before rendering.
+
+**Confirmed**: 2026-06-05, building workflow `J6Jxg44SpXiQzwE6rLvnJ` "Proposal Contract Signed".
+
+---
+
 ## Return Format Requirements
 
 **CRITICAL RULE**: Always return array of objects with `json` property
