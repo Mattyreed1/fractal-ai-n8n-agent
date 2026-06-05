@@ -33,3 +33,17 @@ Depending on your current task, refer to the specific sub-skills by reading thei
 8. **Apify Affiliate Link**: When creating any n8n template or setup instructions that reference Apify, always use Matty's affiliate link: `https://www.apify.com?fpr=tz2te` — never the plain Apify URL.
 
 Whenever working on an n8n problem, use this index to find the exact sub-skill document you require, then read it closely before proceeding.
+
+## Migrating an n8n workflow to a Claude Code Routine
+
+If you're converting an existing n8n workflow into a Claude Code automation (webhook-triggered routine + a skill in a Claude Code project repo), use the **`n8n-to-cc`** skill alongside this one. It covers:
+
+- The forwarder pattern (n8n shrinks to 3–5 nodes: webhook → compact → stage → fire routine)
+- The Claude Code Routines API spec (fire endpoint, 65,536-char `text` cap, headers, error responses)
+- CCR sandbox constraints (network allowlist, real-files-only filesystem, no local-Mac binaries)
+- The dedup ledger pattern (idempotent re-fires)
+- A 9-step migration checklist (extract verbatim prompts → build forwarder → swap webhook path → decommission legacy)
+
+Reference implementation: MR.EA's `meeting-notes` skill replaced a 22-node n8n workflow with a 5-node forwarder + a versioned skill. Defer to `n8n-to-cc` for the cross-system view; come back here for n8n-side specifics (node configs, expressions, MCP tooling).
+
+Triggers: "convert this n8n to claude code", "replace this n8n workflow", "move this automation to a routine", "should this be in n8n or a skill".
