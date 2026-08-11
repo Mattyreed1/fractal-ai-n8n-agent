@@ -29,7 +29,7 @@ Always identify the n8n instance/server first, before listing or editing workflo
 
 Required sequence:
 1. `list_mcp_resources()` (or equivalent environment check) to see available servers.
-2. Confirm the named target instance is reachable (for example `mr-n8n` vs `scaleagency-n8n`).
+2. Confirm the named target instance is reachable (for example `mr-n8n` vs `sa-n8n`).
 3. Run `n8n_health_check` and `n8n_list_workflows` on that instance.
 4. Match by exact workflow name + ID before any update.
 
@@ -341,32 +341,89 @@ You CAN test workflows yourself via the MCP. Don't punt to the user.
    pass the FULL parent object: `{"parameters.options": {responseData: "...", limitWaitTime: {...}}}`
    or even the full `parameters` block.
 
-4. **Failed partial updates can still partially apply server-side** despite the API
+4. **`updateNode` paths DO NOT support array indexing — and it fails SILENTLY.**
+   A path like `parameters.rule.interval[0].expression` is not parsed as "element 0
+   of the `interval` array". The whole segment is taken as a **literal key name**, so
+   you end up with a key called `interval[0]` sitting NEXT TO the untouched real
+   array, and the value you meant to change is unchanged:
+
+   ```jsonc
+   // after updateNode({"parameters.rule.interval[0].expression": "*/2 * * * *"})
+   "rule": {
+     "interval":    [{ "field": "cronExpression", "expression": "10 7 * * *" }],  // ← unchanged!
+     "interval[0]": { "expression": "*/2 * * * *" }                              // ← inert garbage
+   }
+   ```
+
+   **This is worse than #3.** #3 loses sibling keys but does change what you asked;
+   this one returns `success: true, saved: true, operationsApplied: 1` and changes
+   **nothing**. The workflow reports as updated and keeps running the old value.
+
+   *Cost when hit (2026-08-10):* a schedule trigger's cron looked updated to every
+   2 minutes. It was still daily. Two 3-minute waits produced zero executions and the
+   time went into "why isn't the trigger firing" instead of the actual bug.
+
+   **Fix — set the whole parent object** (same remedy as #3):
+   ```javascript
+   n8n_update_partial_workflow({id, operations: [{
+     type: "updateNode", nodeName: "Daily 07:10",
+     updates: { parameters: { rule: { interval: [{ field: "cronExpression", expression: "*/2 * * * *" }] } } }
+   }]})
+   ```
+
+   **Anything containing an array — rewrite the array, never index into it.** Common
+   offenders: `rule.interval` (schedule), `queryParameters.parameters` and
+   `headerParameters.parameters` (HTTP Request), `conditions.conditions` (IF/Filter),
+   `values.values` (Set), `rules.values` (Switch), `fields.values`.
+
+5. **NEVER trust a partial-update response — read the field back.** Combined with #4
+   (silent no-op reported as success) and #6 (failure that partially applies), the
+   write response tells you nothing reliable. After every `updateNode`, re-fetch and
+   assert on **the specific field you intended to change**, and check for stray keys:
+
+   ```javascript
+   const wf = await n8n_get_workflow({id, mode: "details"});
+   const n  = wf.data.workflow.nodes.find(x => x.name === "Daily 07:10");
+   console.log(n.parameters.rule.interval[0].expression);              // the actual value
+   console.log(Object.keys(n.parameters.rule).filter(k => k !== "interval")); // [] or you hit #4
+   ```
+
+   A non-empty stray-key list is the #4 signature. `mode: "structure"` does not return
+   parameters — use `"details"` or `"full"` when verifying a parameter change.
+
+6. **Failed partial updates can still partially apply server-side** despite the API
    returning `saved: false`. After ANY apparent failure, fetch the workflow with
    `n8n_get_workflow({mode: "structure"})` to confirm actual state before retrying.
    Don't trust the API response alone.
 
-5. **`addNode` operations require connections to nodes that exist in the same batch.**
+7. **`addNode` operations require connections to nodes that exist in the same batch.**
    Order: addNode → addConnection within one call. n8n validates the post-batch state,
    so all nodes referenced in connections must either pre-exist or be added earlier
    in the same operations array.
 
-6. **`$execution.resumeUrl` already contains a `?signature=...` query param.** When
+8. **`$execution.resumeUrl` already contains a `?signature=...` query param.** When
    building action-specific URLs, use `&action=approve` not `?action=approve`:
    ```javascript
    const sep = resumeUrl.indexOf('?') >= 0 ? '&' : '?';
    const approveUrl = resumeUrl + sep + 'action=approve';
    ```
 
-7. **IF branch routing**: use the smart `branch: "true"` / `branch: "false"` parameters,
+9. **IF branch routing**: use the smart `branch: "true"` / `branch: "false"` parameters,
    NOT `sourceIndex`. Using sourceIndex=0 for multiple connections puts them all on
    the true branch.
 
-8. **Long Code nodes with HTML in jsCode**: the n8n MCP's JSON parser can choke on
-   certain character combinations. If `n8n_update_partial_workflow` returns
-   `Input validation error: Expected array, received string`, simplify the operations
-   batch (split into smaller calls) and use placeholder strings + `patchNodeField`
-   to insert the real content separately.
+10. **Long Code nodes with HTML in jsCode**: the n8n MCP's JSON parser can choke on
+    certain character combinations. If `n8n_update_partial_workflow` returns
+    `Input validation error: Expected array, received string`, simplify the operations
+    batch (split into smaller calls) and use placeholder strings + `patchNodeField`
+    to insert the real content separately.
+
+11. **A schedule-triggered workflow cannot be fired via `n8n_test_workflow`** (webhook /
+    form / chat triggers only). To test one end-to-end without waiting for its real
+    slot: temporarily set the cron to `*/2 * * * *`, activate, wait ~3 min, verify via
+    the executions API, then **restore the real cron and confirm the restore landed**
+    (it is an array write — see #4). Give it something real to do first, or a healthy
+    no-op run will exercise none of the write path.
 
 ---
 

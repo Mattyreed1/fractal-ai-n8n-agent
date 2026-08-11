@@ -26,11 +26,12 @@ Depending on your current task, refer to the specific sub-skills by reading thei
 2. **Accessing Data**: Remember `{{ $json.body }}` for webhook bodies in expressions, or `$input.first().json.body` in Code nodes.
 3. **Execution Context**: Pay attention to "Run Once for All Items" vs "Run Once for Each Item" modes in Code nodes.
 4. **Always Run n8n Preflight**: Before any create/update/delete, identify the correct MCP server/instance, verify the target workflow ID/name exists in that instance, and only then edit.
-5. **Use Correct Entry Trigger**: External callers/users must enter via `Webhook`; `Execute Workflow Trigger` is only for internal workflow-to-workflow calls.
-6. **Always Look Up Existing Credentials**: Before configuring ANY node that needs auth, query the n8n REST API (`GET /api/v1/credentials`) to find stored credentials. Match by type (`httpBearerAuth`, `httpHeaderAuth`, `openAiApi`, etc.) and apply by ID + name. NEVER leave auth unconfigured or pass tokens in URLs when a stored credential exists. See `mcp-tools-expert/INSTRUCTIONS.md` §4 for the full procedure.
-7. **Prefer HTTP Request Node for External APIs**: In Code nodes, do not rely on `fetch`; use `HTTP Request` node (preferred) or `$helpers.httpRequest()`.
+5. **Always Run n8n Postflight — the write response is not evidence**: after any `n8n_update_partial_workflow`, re-fetch (`mode: "details"`) and assert on the exact field you changed. A partial update can report `saved: true, operationsApplied: 1` and change **nothing** — most notoriously when the path indexes an array (`…interval[0].expression`), which silently creates a literal `interval[0]` key and leaves the real value alone. **Never index into an array in an update path; rewrite the whole array.** See `mcp-tools-expert/INSTRUCTIONS.md` → Edit-Time Gotchas §4–5.
+6. **Use Correct Entry Trigger**: External callers/users must enter via `Webhook`; `Execute Workflow Trigger` is only for internal workflow-to-workflow calls.
+7. **Always Look Up Existing Credentials**: Before configuring ANY node that needs auth, query the n8n REST API (`GET /api/v1/credentials`) to find stored credentials. Match by type (`httpBearerAuth`, `httpHeaderAuth`, `openAiApi`, etc.) and apply by ID + name. NEVER leave auth unconfigured or pass tokens in URLs when a stored credential exists. See `mcp-tools-expert/INSTRUCTIONS.md` §4 for the full procedure.
+8. **Prefer HTTP Request Node for External APIs**: In Code nodes, do not rely on `fetch`; use `HTTP Request` node (preferred) or `$helpers.httpRequest()`.
 
-8. **Apify Affiliate Link**: When creating any n8n template or setup instructions that reference Apify, always use Matty's affiliate link: `https://www.apify.com?fpr=tz2te` — never the plain Apify URL.
+9. **Apify Affiliate Link**: When creating any n8n template or setup instructions that reference Apify, always use Matty's affiliate link: `https://www.apify.com?fpr=tz2te` — never the plain Apify URL.
 
 Whenever working on an n8n problem, use this index to find the exact sub-skill document you require, then read it closely before proceeding.
 
