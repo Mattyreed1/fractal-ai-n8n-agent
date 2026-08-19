@@ -108,6 +108,43 @@ alert that arrives is worth more than a 10-minute alert on a dead plan.
 
 ---
 
+## "Webhooks expire" is the usual excuse for skipping rung 1 — price the renewal, don't guess it
+
+The most common reason rung 1 gets abandoned is a vague sense that push subscriptions are
+high-maintenance. **Renewal is a scheduled job like any other, so put a number on it.** One weekly
+renewal workflow that PATCHes every subscription an instance owns costs **52 executions a year**.
+Set against a 10-minute poller at 4,320/month, that is not a trade-off — it is three orders of
+magnitude.
+
+**Microsoft Graph change notifications**, the case that keeps coming up on the Tulum and Blackboard
+work, verified 2026-08-19 against the *Subscription lifetime* table at
+<https://learn.microsoft.com/en-us/graph/api/resources/subscription>:
+
+| Resource | Max subscription life | Renew every |
+|---|---|---|
+| SharePoint `list` | 42,300 min (under 30 days) | monthly |
+| OneDrive / SharePoint `driveItem` | 42,300 min (under 30 days) | monthly |
+| Outlook `message`, `event`, `contact` | **10,080 min (under 7 days)** | weekly |
+| Outlook `message` **with `includeResourceData: true`** | 1,440 min (under 1 day) | daily — avoid |
+| `user`, `group`, directory resources | 41,760 min (under 29 days) | monthly |
+| Teams `chatMessage`, `channel`, `chat` | 4,320 min (3 days) | every 2 days |
+| Group `conversation`, `callRecord`, `printer` | 4,230 min (under 3 days) | every 2 days |
+| `presence` | 60 min | not viable as a webhook |
+
+**Do not quote the 3-day figure for mail.** That belongs to Teams and Print resources. Outlook mail
+is a full week, and the only thing that shortens it to a day is asking for the message body inline
+via `includeResourceData` — which you rarely need, because the notification carries the resource id
+and you can fetch the body with the token you already hold.
+
+Two practical notes:
+- Graph validates `notificationUrl` at subscription time by POSTing a `validationToken` query param
+  that you must echo back as `text/plain` within 10 seconds. An n8n Webhook node needs a response
+  path for that handshake or the subscription will never create.
+- Also set `lifecycleNotificationUrl`. Graph warns you before a subscription lapses or is removed,
+  which is the staleness detection the native-trigger trade-off above asks for.
+
+---
+
 ## Checking current headroom
 
 `budget-check.py` (in this directory) measures what an instance is *already* committed to, so
