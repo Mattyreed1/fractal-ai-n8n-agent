@@ -127,6 +127,41 @@ After webhook edits:
 
 ---
 
+### 7. Execution Budget Guardrail (CRITICAL)
+
+**An n8n plan is metered in executions/month. Never `n8n_create_workflow` with a Schedule/Cron
+trigger, never activate one, and never change an interval, without pricing it first.**
+
+```
+runs/day   = active_minutes_per_day / interval_minutes
+runs/month = runs/day * active_days   (30 for 24/7, ~22 weekdays-only)
+```
+
+State the number, then check it against the instance:
+
+```bash
+python3 execution-budget/budget-check.py --instance mr-n8n --days 7 --cap 2500
+```
+
+| New total vs plan cap | Action |
+|---|---|
+| <= 50% | proceed |
+| 50-80% | proceed, state the number in the handoff |
+| **> 80%** | **STOP — do not activate, escalate to a human** |
+| **any single workflow > 25% of cap** | **STOP — escalate** |
+
+Reference points on a 2,500 Starter plan: every 10 min 24/7 = **4,320/mo (173% of the plan)** ·
+every 15 min 24/7 = 2,880 · every 30 min 24/7 = 1,440 · hourly 24/7 = 720 · same 10 min windowed
+to business hours = 1,188.
+
+**Also: `Schedule Trigger -> HTTP Request -> IF (nothing new)` bills an execution on every empty
+tick. A native poll trigger (Gmail Trigger, RSS, etc.) with nothing new bills nothing at all.**
+Prefer the native trigger where one exists — but then add a staleness check, because a dead poll
+trigger produces no execution record and looks healthy while doing nothing.
+
+Full table, polling ladder and incident history: [execution-budget/INSTRUCTIONS.md](../execution-budget/INSTRUCTIONS.md)
+
+
 ## Quick Reference
 
 ### Most Used Tools (by success rate)

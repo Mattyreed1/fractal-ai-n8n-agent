@@ -118,6 +118,14 @@ When building ANY workflow, follow this checklist:
 
 ### Planning Phase
 - [ ] Identify the pattern (webhook, API, database, AI, scheduled)
+- [ ] **If the trigger is time-based or polling: PRICE IT.** runs/day -> runs/month -> % of plan cap.
+      `>80%` of cap, or any single workflow `>25%` of cap, is a STOP. Run
+      `execution-budget/budget-check.py` for current headroom. See
+      [execution-budget/INSTRUCTIONS.md](../execution-budget/INSTRUCTIONS.md).
+      (`every 10 min, 24/7` = 4,320/mo = 173% of a 2,500 Starter plan.)
+- [ ] **Climb the polling ladder before settling on a schedule:** real webhook > native trigger
+      node (free when idle) > coarse schedule windowed to business hours > frequent 24/7 schedule.
+      Write down why the higher rungs are unavailable.
 - [ ] List required nodes (use search_nodes)
 - [ ] Understand data flow (input → transform → output)
 - [ ] Plan error handling strategy

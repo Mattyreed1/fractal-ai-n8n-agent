@@ -13,6 +13,7 @@ Depending on your current task, refer to the specific sub-skills by reading thei
 
 - **[JavaScript Code Nodes](code-javascript/INSTRUCTIONS.md)**: Expert guidance for writing JavaScript in n8n Code nodes. Use for complex transformations, business logic, or parsing responses using `$input`, `$json`, and built-in helpers.
 - **[Python Code Nodes](code-python/INSTRUCTIONS.md)**: Guidance for writing Python in n8n Code nodes. Use for data analysis, leveraging Python dictionaries/lists, and operations requiring the Python standard library.
+- **[Execution Budget](execution-budget/INSTRUCTIONS.md)**: MANDATORY cost gate for any scheduled or polling workflow. The cadence cost table, the runs/month formula, the polling ladder, and `budget-check.py` for live instance headroom. Read before creating, activating, or re-scheduling anything time-based.
 - **[Expression Syntax](expression-syntax/INSTRUCTIONS.md)**: n8n expressions and syntax usage. Covers `{{ $json.field }}`, data access, built-in methods, and common string/math operations.
 - **[MCP Tools Expert](mcp-tools-expert/INSTRUCTIONS.md)**: Guide to using n8n MCP tools for interacting with n8n instances (searching nodes, getting node essentials, validation).
 - **[Node Configuration](node-configuration/INSTRUCTIONS.md)**: Best practices for configuring n8n nodes, handling inputs/outputs, credentials, execution modes, and routing.
@@ -21,6 +22,27 @@ Depending on your current task, refer to the specific sub-skills by reading thei
 - **[Workflow Patterns](workflow-patterns/INSTRUCTIONS.md)**: High-level production-ready architectural patterns for API integration, webhooks, databases, and scheduled tasks.
 
 ## Quick Guidelines
+
+> ### ⛔ HARD RULE — Price the schedule before you build it
+>
+> **An n8n plan is metered in executions/month. A schedule interval is a purchase, not a preference.**
+> Before you create, activate, or change the interval of ANY Schedule/Cron/polling trigger, state:
+> **runs/day → runs/month → current instance rate → % of plan cap.**
+>
+> `every 10 min, 24/7` = **4,320 executions/month = 173% of an entire 2,500 Starter plan.**
+> `every 15 min, 24/7` (2,880) also exceeds it. On Starter, **nothing runs more often than every
+> 30 min 24/7** — and that alone is 58% of the plan.
+>
+> **> 80% of cap, or any single workflow > 25% of cap → STOP and escalate. Do not activate.**
+>
+> Windowing to business hours cuts a 10-min poller by 73% for one config change. Check the ladder
+> first: real webhook > native trigger node > coarse windowed schedule > frequent 24/7 schedule.
+> A native poll trigger costs NOTHING when idle; a Schedule Trigger bills every empty tick.
+>
+> Full table, formula, decision ladder and `budget-check.py`: **[execution-budget/INSTRUCTIONS.md](execution-budget/INSTRUCTIONS.md)**.
+> This exists because `mr-automations` burned a whole month's quota in 11 days on two 10-minute
+> pollers and took down contract signing and lead capture with it (2026-08-18).
+
 
 1. **Always Read Sub-Instructions**: Need to write JavaScript? First read `code-javascript/INSTRUCTIONS.md`. Need to fix an error? Read `validation-expert/INSTRUCTIONS.md`.
 2. **Accessing Data**: Remember `{{ $json.body }}` for webhook bodies in expressions, or `$input.first().json.body` in Code nodes.

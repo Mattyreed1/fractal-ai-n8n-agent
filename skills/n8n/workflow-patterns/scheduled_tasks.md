@@ -4,6 +4,34 @@
 
 ---
 
+## ⛔ Read this before you pick an interval
+
+**Every tick of a Schedule Trigger is a billed execution, whether or not there was work to do.**
+Price the schedule before building — see [execution-budget/INSTRUCTIONS.md](../execution-budget/INSTRUCTIONS.md).
+
+Executions per month (bold = exceeds a 2,500 Starter plan on its own):
+
+| Interval | 24/7 (30 d) | Work hrs 14h x 22 d | Business hrs 9h x 22 d |
+|---|---|---|---|
+| every 1 min | **43,200** | **18,480** | **11,880** |
+| every 5 min | **8,640** | **3,696** | 2,376 |
+| every 10 min | **4,320** | 1,848 | 1,188 |
+| every 15 min | **2,880** | 1,232 | 792 |
+| every 30 min | 1,440 | 616 | 396 |
+| every hour | 720 | 308 | 198 |
+| every 4 hours | 180 | 77 | 50 |
+| daily | 30 | 22 | 22 |
+
+**Windowing to business hours is the cheapest lever you have** — the same 10-minute interval drops
+from 4,320 to 1,188, a 73% cut, for one config change. Ask whether it truly needs to fire at 3am
+on a Sunday. If it is keyed to someone's working day, it does not.
+
+**Before choosing a Schedule Trigger at all**, check whether the source has a native n8n trigger
+node: a native poll trigger costs nothing while idle, where `Schedule -> HTTP -> IF (nothing new)`
+pays full price on every empty check. For a low-event stream that is a ~100x difference.
+
+---
+
 ## Pattern Structure
 
 ```
