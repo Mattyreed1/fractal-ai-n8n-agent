@@ -136,12 +136,28 @@ is a full week, and the only thing that shortens it to a day is asking for the m
 via `includeResourceData` — which you rarely need, because the notification carries the resource id
 and you can fetch the body with the token you already hold.
 
-Two practical notes:
-- Graph validates `notificationUrl` at subscription time by POSTing a `validationToken` query param
-  that you must echo back as `text/plain` within 10 seconds. An n8n Webhook node needs a response
-  path for that handshake or the subscription will never create.
-- Also set `lifecycleNotificationUrl`. Graph warns you before a subscription lapses or is removed,
-  which is the staleness detection the native-trigger trade-off above asks for.
+Three practical notes, the second of which is the one people get wrong:
+
+- Graph validates `notificationUrl` by POSTing a `validationToken` query param that you must echo
+  back as `text/plain` within 10 seconds. An n8n Webhook node needs `responseMode: responseNode` and
+  a branch for that handshake, or the subscription will never create.
+
+- **Graph re-runs that handshake on RENEWAL, not only on create.** Verified live 2026-08-19: with the
+  receiving workflow switched off, `PATCH /subscriptions/{id}` returned
+  `400 ValidationError … Notification endpoint must respond with 200 OK`, while a second subscription
+  whose receiver was up renewed normally in the same run. Two consequences worth designing around:
+  **(a)** the handshake branch is load-bearing forever — it is not setup scaffolding to delete once
+  the subscription exists; **(b)** *the renewal job is already your heartbeat*, so do not also build
+  ping requests to detect a dead receiver. That is the exact mistake made on the Tulum build: 60
+  executions a month spent proving something the renewal proves for free, and an alert that named the
+  same fault twice. Read the renewal's own `ValidationError` instead and you get a better diagnosis
+  at zero cost.
+
+- A renewal job should **reconcile, not just renew** — match your desired subscriptions against
+  `GET /subscriptions` by `notificationUrl` and POST a fresh one for anything missing. A subscription
+  id remembered in workflow state is stale at exactly the moment Graph drops the subscription, which
+  is the one moment the job exists for. Reconciling this way also makes `lifecycleNotificationUrl`
+  optional: a daily run both detects and repairs a lapse, where a lifecycle webhook only tells you.
 
 ---
 
