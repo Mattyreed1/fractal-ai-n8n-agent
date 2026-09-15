@@ -29,7 +29,7 @@ Always identify the n8n instance/server first, before listing or editing workflo
 
 Required sequence:
 1. `list_mcp_resources()` (or equivalent environment check) to see available servers.
-2. Confirm the named target instance is reachable (for example `mr-n8n` vs `sa-n8n`).
+2. Confirm the named target instance is reachable (for example `mr-n8n` vs `bb-n8n` vs `mippo-n8n`).
 3. Run `n8n_health_check` and `n8n_list_workflows` on that instance.
 4. Match by exact workflow name + ID before any update.
 
@@ -140,7 +140,7 @@ runs/month = runs/day * active_days   (30 for 24/7, ~22 weekdays-only)
 State the number, then check it against the instance:
 
 ```bash
-python3 execution-budget/budget-check.py --instance mr-n8n --days 7 --cap 2500
+python3 ../execution-budget/budget-check.py --instance mr-n8n --days 7 --cap 2500
 ```
 
 | New total vs plan cap | Action |
