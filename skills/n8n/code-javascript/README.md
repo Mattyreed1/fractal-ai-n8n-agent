@@ -74,7 +74,7 @@ Top 5 errors to avoid:
 - **$helpers.httpRequest()** - Make HTTP requests
 - **DateTime (Luxon)** - Advanced date/time operations
 - **$jmespath()** - Query JSON structures
-- **$getWorkflowStaticData()** - Persistent storage
+- **$getWorkflowStaticData(type)** - Persistent storage (pass `'global'` or `'node'`)
 - Standard JavaScript globals (Math, JSON, console)
 - Available Node.js modules (crypto, Buffer, URL)
 
@@ -133,7 +133,7 @@ n8n-code-javascript/
 │   - $helpers.httpRequest() API reference
 │   - DateTime (Luxon) complete guide
 │   - $jmespath() JSON querying
-│   - $getWorkflowStaticData() persistent storage
+│   - $getWorkflowStaticData('global' | 'node') persistent storage
 │   - Standard JavaScript globals
 │   - Available Node.js modules
 │   - What's NOT available
@@ -175,7 +175,7 @@ n8n-code-javascript/
 - Complete $helpers.httpRequest() reference
 - DateTime/Luxon operations (formatting, parsing, arithmetic)
 - $jmespath() for JSON queries
-- Persistent storage with $getWorkflowStaticData()
+- Persistent storage with $getWorkflowStaticData('global' | 'node')
 - Standard JavaScript and Node.js modules
 
 ---

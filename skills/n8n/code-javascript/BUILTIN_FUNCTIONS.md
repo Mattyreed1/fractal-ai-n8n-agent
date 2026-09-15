@@ -11,7 +11,7 @@ n8n Code nodes provide powerful built-in functions beyond standard JavaScript. T
 1. **$helpers.httpRequest()** - Make HTTP requests
 2. **DateTime (Luxon)** - Advanced date/time operations
 3. **$jmespath()** - Query JSON structures
-4. **$getWorkflowStaticData()** - Persistent storage
+4. **$getWorkflowStaticData(type)** - Persistent storage (`'global'` or `'node'`)
 5. **Standard JavaScript Globals** - Math, JSON, console, etc.
 6. **Available Node.js Modules** - crypto, Buffer, URL
 
@@ -474,15 +474,43 @@ return [{json: {query1, query2, query3, query4, query5}}];
 
 ---
 
-## 4. $getWorkflowStaticData() - Persistent Storage
+## 4. $getWorkflowStaticData(type) - Persistent Storage
 
-Store data that persists across workflow executions.
+Store small values that persist across production executions of the same workflow.
+
+### Always Pass the Type
+
+There is no default. Pass `'global'` or `'node'`; a call with no argument throws.
+
+```javascript
+// ❌ WRONG - throws "Unknown context type. Only `global` and `node` are supported."
+const staticData = $getWorkflowStaticData();
+
+// ✅ CORRECT
+const globalData = $getWorkflowStaticData('global'); // one object shared by every node in the workflow
+const nodeData = $getWorkflowStaticData('node');     // private to the node that calls it
+```
+
+### When It Is Saved
+
+- **Production executions only.** A published (active) workflow started by its trigger, webhook, or schedule saves static data. A test run from the editor (manual mode) never saves it, so values written while testing are not kept. The n8n docs also say static data isn't available when testing.
+- **At the end of the execution (or when it pauses at a Wait node), and only if it changed.** Writes are tracked, including nested changes such as `.push()`.
+- **A later failure does not undo it.** If a Code node updates static data and a node after it fails, the update is still saved. Advance a "last processed" marker only after the work it records has succeeded.
+- **Keep it small.** It is stored in the workflow itself. The docs mark static data experimental, warn it can be unreliable under high-frequency executions, and suggest a Data Table when you need persistence that also works in test runs.
+- **Check it after a production run** with `GET /api/v1/workflows/{id}`: global data is under `staticData.global`, node data under `staticData["node:<Node Name>"]`.
+
+**Sources** (checked 2026-09-15; source links pinned to n8n release `n8n@2.39.5`):
+- No default: the Code node's task runner passes `type` straight to `getStaticData` ([js-task-runner.ts#L650](https://github.com/n8n-io/n8n/blob/n8n@2.39.5/packages/@n8n/task-runner/src/js-task-runner/js-task-runner.ts#L650)), which throws for anything but `'global'` or `'node'` ([workflow.ts#L217-L232](https://github.com/n8n-io/n8n/blob/n8n@2.39.5/packages/workflow/src/workflow.ts#L217-L232); the same branch exists in [n8n@1.0.0](https://github.com/n8n-io/n8n/blob/n8n@1.0.0/packages/workflow/src/Workflow.ts#L315-L330)).
+- Not saved in manual mode: [execution-lifecycle-hooks.ts#L592-L599](https://github.com/n8n-io/n8n/blob/n8n@2.39.5/packages/cli/src/execution-lifecycle/execution-lifecycle-hooks.ts#L592-L599).
+- Saved when the execution stops (success, error, or waiting), only if changed: [workflow-execute.ts#L2879-L2954](https://github.com/n8n-io/n8n/blob/n8n@2.39.5/packages/core/src/execution-engine/workflow-execute.ts#L2879-L2954). Change tracking, nested writes included: [observable-object.ts#L18-L75](https://github.com/n8n-io/n8n/blob/n8n@2.39.5/packages/workflow/src/observable-object.ts#L18-L75).
+- n8n docs: [getWorkflowStaticData(type)](https://docs.n8n.io/build/code-in-n8n/cookbook/built-in-methods-and-variables-examples/getworkflowstaticdata).
+- Production: on 2026-09-15, scheduled runs on `mr-automations` read and wrote `$getWorkflowStaticData('global')`, and the value appeared under `staticData.global`. The no-argument form was confirmed from source, not run live.
 
 ### Basic Usage
 
 ```javascript
-// Get static data storage
-const staticData = $getWorkflowStaticData();
+// Get the workflow's global static data
+const staticData = $getWorkflowStaticData('global');
 
 // Initialize counter if doesn't exist
 if (!staticData.counter) {
@@ -503,7 +531,7 @@ return [{
 
 ```javascript
 // Use Case 1: Rate limiting
-const staticData = $getWorkflowStaticData();
+const staticData = $getWorkflowStaticData('global');
 const now = Date.now();
 
 if (!staticData.lastRun) {
@@ -525,7 +553,7 @@ return [{json: {allowed: true, totalRuns: staticData.runCount}}];
 
 ```javascript
 // Use Case 2: Tracking last processed ID
-const staticData = $getWorkflowStaticData();
+const staticData = $getWorkflowStaticData('global');
 const currentItems = $input.all();
 
 // Get last processed ID
@@ -535,6 +563,8 @@ const lastId = staticData.lastProcessedId || 0;
 const newItems = currentItems.filter(item => item.json.id > lastId);
 
 // Update last processed ID
+// Saved even if a later node fails. If downstream work must succeed first,
+// move this update into a final Code node.
 if (newItems.length > 0) {
   staticData.lastProcessedId = Math.max(...newItems.map(item => item.json.id));
 }
@@ -544,7 +574,8 @@ return newItems;
 
 ```javascript
 // Use Case 3: Accumulating results
-const staticData = $getWorkflowStaticData();
+// Grows without limit as written. Trim it: static data should stay small.
+const staticData = $getWorkflowStaticData('global');
 
 if (!staticData.accumulated) {
   staticData.accumulated = [];
@@ -755,7 +786,7 @@ return [{
 - API calls: Use $helpers.httpRequest()
 - Date operations: Use DateTime (Luxon)
 - Data filtering: Use $jmespath() or JavaScript .filter()
-- Persistent data: Use $getWorkflowStaticData()
+- Persistent data: Use $getWorkflowStaticData('global') (saved by production runs only)
 - Hashing: Use crypto module
 
 **See Also**:
