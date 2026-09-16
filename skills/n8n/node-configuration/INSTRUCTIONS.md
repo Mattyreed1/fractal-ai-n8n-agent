@@ -458,6 +458,8 @@ get_node({
 - sendBody=true → body required
 - authentication != "none" → credentials required
 
+**Concurrency gotcha (verified 2026-09-16, bb-n8n):** an HTTP Request node sends the requests for ALL its input items at once; `options.batching` only spaces out the start times, it does not wait for each response. When writes must happen in order on the same object (e.g. SharePoint break inheritance → add role → remove role), feed them through **Loop Over Items (batch size 1)** → HTTP Request → back to the loop. Throttled APIs (SharePoint returned 503 at 10 reads per 300 ms) need gentler batching (4 per 1000 ms) plus Retry On Fail, and a design that is safe to rerun from fresh reads.
+
 ### Pattern 3: Database Nodes
 
 **Examples**: Postgres, MySQL, MongoDB
