@@ -1,6 +1,6 @@
 ---
 name: n8n
-description: Master skill for n8n. Use this when working with anything n8n-related, including code nodes (JavaScript/Python), expressions, node configuration, validation, and workflow patterns.
+description: "Builds, debugs, and validates n8n workflows by routing each task to the right sub-guide. Use for \"n8n\" or any n8n workflow, node, expression, Code node, failing execution, schedule or polling trigger, credentials, or template publishing. Not for migrating a workflow to a Claude Code routine (use n8n-to-cc) or Power Automate flows (use ms-admin)."
 ---
 
 # n8n Master Skill
